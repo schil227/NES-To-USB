@@ -14,18 +14,18 @@
 // Pin which contains the actual controller data
 #define NES_DATA_PIN 4
 
-// For sending the console's query command to the controller. 
+// For sending the console's latch command to the controller. 
 // Both commands aledgedly translate to 1 opt code, taking 2 cycles
-// TODO I don't think this is working correctly; esp. now that I have several pins in this bank. 
-// Tried negating it, I _think_ it should work now, but it don't (shrug)
-#define NES_COMMAND_HIGH DDRD |= 0x04
-#define NES_COMMAND_LOW DDRD &= ~0x04
+#define NES_COMMAND_HIGH PORTD |= 0x04
+#define NES_COMMAND_LOW PORTD &= ~0x04
 
+// For emitting the pulse from the console to the controller
+// Like above, each commands translate to 1 opt code, 2 cycles
+#define NES_PULSE_HIGH (PORTD |= 0x80)
+#define NES_PULSE_LOW (PORTD &= ~0x80)
 
-// PIND is an 8 bit value, holding all the pins simultaneously.
-// 0x10 corresponds to pin 4, doing & on that isolates it to just that pin.
-// One command, 2 cycles (I think)
-#define NES_PULSE_QUERY (PIND & 0x80)
+// For getting the response from the controller
+// Translates to 1 opt code, 2 cycles.
 #define NES_DATA_QUERY (PIND & 0x10)
 
 struct state {
@@ -50,7 +50,6 @@ void translate(){
 
   for(auto i = 0; i < 8; i++){
     //Note: the values are inverted; "high" means the button is not pressed
-    // print_binary(NES_raw_dump[i]);
     if(!(NES_raw_dump[i] & 0x10)){
       // 0x80 is 1000 0000, and it's shifted `i` times to the right
       // then the binary value of buttons is OR'd with the result, flipping the bit to 1
@@ -61,8 +60,8 @@ void translate(){
 
 void NES_send(){
   // Begin sending the "latch" command from NES -> Controller
-  // NES_COMMAND_HIGH;
-  digitalWrite(NES_COMMAND_PIN, HIGH);
+  NES_COMMAND_HIGH;
+
   // block 12us 
   // each row is 16 NOPs, each NOP use 1 cycle - Arduino Uno operates at 16Mhz, or 16 operations per 1us.
   // therefore, 16 NOPs takes 1us, 12 rows makes 12us.
@@ -82,8 +81,7 @@ void NES_send(){
     );
     // Beautiful.
 
-    // NES_COMMAND_LOW;
-    digitalWrite(NES_COMMAND_PIN, LOW);
+    NES_COMMAND_LOW;
 }
 
 void NES_get(){
@@ -101,8 +99,7 @@ void NES_get(){
 
   for(int i = 1; i < 8; i++){
     
-    //digitalWrite is doing a bunch of shit, but timing-wise this may work out for now...
-    digitalWrite(NES_PULSE_PIN, HIGH);
+    NES_PULSE_HIGH;
 
     // Wait 6us
     asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
@@ -114,7 +111,7 @@ void NES_get(){
 
     NES_raw_dump[i] = NES_DATA_QUERY;
 
-    digitalWrite(NES_PULSE_PIN, LOW);
+    NES_PULSE_LOW;
     
     // Wait 6us
     asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
@@ -173,8 +170,6 @@ void loop() {
   interrupts();
 
   translate();
-
-  // printCrappyDebug();
 
   // printData();
   Serial.write((uint8_t*) &NES_state, 1);
