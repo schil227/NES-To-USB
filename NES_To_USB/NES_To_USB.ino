@@ -32,17 +32,7 @@ struct state {
   // A, B, Select, Start, Up, Down, Left, Right
   unsigned char buttons;
 } NES_state;
-char NES_raw_dump[8]; // Note: only uses 1 bit for each of the 8 bytes; could be improved
-
-void print_binary(char a){
-    int i;
-    
-    for (i = 0; i < 8; i++) {
-         Serial.print(!!((a << i) & 0x80));
-    }
-    
-     Serial.println("");
-}
+char NES_raw_dump[8]; // Note: only uses 1 bit for each of the 8 bytes
 
 void translate(){
   // Zero out any previous values of NES_state
@@ -97,7 +87,7 @@ void NES_get(){
   asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
 
   // Note: Timing doesn't have to be perfect here; I'm not sure what the tolerances are, but it certainly seems like 6us "give or take".
-  // This probably just gets inlined by the compiler. Could check the assembly output, but since it works, ¯\_(ツ)_/¯
+  // This probably just gets inlined by the compiler; I could check the assembly output, but since it works, ¯\_(ツ)_/¯
   for(int i = 1; i < 8; i++){
     NES_PULSE_HIGH;
 
